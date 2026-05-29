@@ -12,6 +12,7 @@ fi
 ROOT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
 MODEL_TYPE="${MODEL_TYPE:-T2V-1.3B}"
 PREV_ARG=""
+
 for ARG in "$@"; do
   if [ "$PREV_ARG" = "--model_type" ]; then
     MODEL_TYPE="$ARG"
@@ -30,6 +31,9 @@ if [ "$MODEL_TYPE" = "T2V-14B" ]; then
   CONFIG_PATH="${CONFIG_PATH:-configs/wan_causal_dmd_v2v_14b.yaml}"
   CHECKPOINT_FOLDER="${CHECKPOINT_FOLDER:-ckpts/wan_causal_dmd_v2v_14b}"
   STEP="${STEP:-1}"
+  echo $CONFIG_PATH
+  echo $CHECKPOINT_FOLDER
+  echo $STEP
 else
   CONFIG_PATH="${CONFIG_PATH:-configs/wan_causal_dmd_v2v.yaml}"
   CHECKPOINT_FOLDER="${CHECKPOINT_FOLDER:-ckpts/wan_causal_dmd_v2v}"

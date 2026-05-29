@@ -1,0 +1,61 @@
+{
+  "config": {
+    "model_type": "T2V-14B",
+    "num_gpus": 1,
+    "gpu_ids": "0",
+    "step": 2,
+    "online_batching_mode": "batch",
+    "input_fps_cap": 16.0,
+    "max_pending": 8,
+    "target_latency_s": 1.0,
+    "warmup_frames": 8,
+    "duration_s": 25.0,
+    "frames_fed": 158,
+    "frames_generated": 138
+  },
+  "ttff_s": 1.970514447428286,
+  "fps": {
+    "steady_state": 6.0551928562646,
+    "end_to_end": 5.610731634561759,
+    "frames": 138,
+    "wall_span_s": 22.62520835455507
+  },
+  "latency_s": {
+    "mean": 3.2059699611308483,
+    "p50": 3.1953912931494415,
+    "p90": 3.3586554693058135,
+    "p95": 3.3631905782502143,
+    "p99": 3.9585198552813377,
+    "p99_9": 4.031077044658363,
+    "min": 2.7086159884929657,
+    "max": 4.039138851687312,
+    "std": 0.1629846392619798,
+    "samples": 130
+  },
+  "slo": {
+    "target_latency_s": 1.0,
+    "miss_rate": 1.0,
+    "missed_frames": 130,
+    "total_frames": 130
+  },
+  "latency_jitter_s": {
+    "mean": 0.10012820816432783,
+    "std": 0.15862990865558613,
+    "p95": 0.20882010571658605,
+    "p99": 0.9083132334053511,
+    "max": 1.2055304134264588
+  },
+  "cadence_s": {
+    "mean_interval": 0.1630586018756956,
+    "std_interval": 0.2868448229467506,
+    "p95_interval": 0.6586026167497039,
+    "p99_interval": 0.6809699963778257,
+    "max_interval": 1.103047457523644,
+    "interarrival_jitter": 0.32866499440569896
+  },
+  "output_batch": {
+    "mean_frames_per_drain": 3.942857142857143,
+    "max_frames_per_drain": 5,
+    "drains": 35
+  }
+}

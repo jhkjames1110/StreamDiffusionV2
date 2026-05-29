@@ -342,7 +342,7 @@ class WanDiffusionWrapper(DiffusionModelInterface):
 
 class CausalWanDiffusionWrapper(WanDiffusionWrapper):
     def __init__(self, model_type="T2V-1.3B"):
-        super().__init__()
+        super().__init__(model_type=model_type)
 
         self.model = CausalWanModel.from_pretrained(
             str(PROJECT_ROOT / f"wan_models/Wan2.1-{model_type}/"))

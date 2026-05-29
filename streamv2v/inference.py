@@ -142,6 +142,28 @@ class SingleGPUInferencePipeline:
         if self.profile and elapsed > 0 and num_frames > 0:
             values.append(num_frames / elapsed)
 
+    def _log_stage_breakdown(self, *, num_frames: int, input_batch: int, produced: int,
+                             read_s: float | None, encode_s: float, infer_s: float,
+                             decode_s: float) -> None:
+        """Emit a per-call read/encode/infer/decode/total breakdown (profile only).
+
+        Timings come from CUDA-synchronized boundaries (see _sync_for_timing), so they
+        are only meaningful with profile=True and are intentionally serialized; this run
+        is slower than a normal run and its total will not match end-to-end latency.
+        """
+        read_ms = (read_s or 0.0) * 1e3
+        encode_ms = encode_s * 1e3
+        infer_ms = infer_s * 1e3
+        decode_ms = decode_s * 1e3
+        compute_ms = encode_ms + infer_ms + decode_ms
+        total_ms = read_ms + compute_ms
+        self.logger.info(
+            "[stage] frames=%d batches=%d produced=%d | read=%.1fms encode=%.1fms "
+            "infer=%.1fms decode=%.1fms | compute=%.1fms total=%.1fms",
+            num_frames, input_batch, produced,
+            read_ms, encode_ms, infer_ms, decode_ms, compute_ms, total_ms,
+        )
+
     def _timed_stream_encode(self, images: torch.Tensor) -> torch.Tensor:
         self._sync_for_timing()
         start_time = time.time()
@@ -216,6 +238,7 @@ class SingleGPUInferencePipeline:
 
     def run_stream_batch(self, session: SingleGPUStreamSession, images: torch.Tensor, queue_wait_time: float | None = None) -> List[np.ndarray]:
         """Process one or more chunk-aligned frame groups for an active streaming session."""
+        profile = self.profile
         num_frames = images.shape[2]
         input_batch = num_frames // session.chunk_size
         noise_scale, current_step = compute_noise_scale_and_step(
@@ -225,34 +248,61 @@ class SingleGPUInferencePipeline:
             noise_scale=float(session.noise_scale),
             init_noise_scale=float(session.init_noise_scale),
         )
+
+        if profile:
+            self._sync_for_timing()
+            encode_start = time.time()
         noisy_latents = self._encode_noisy_latents(images, noise_scale)
+        if profile:
+            self._sync_for_timing()
+            encode_s = time.time() - encode_start
 
         outputs: List[np.ndarray] = []
         num_steps = len(self.pipeline.denoising_step_list)
+        infer_s = 0.0
+        decode_s = 0.0
 
         for batch_idx in range(input_batch):
             if session.current_start // self.pipeline.frame_seq_length >= self.t_refresh:
                 session.current_start = self.pipeline.kv_cache_length - self.pipeline.frame_seq_length
                 session.current_end = session.current_start + (session.chunk_size // self.base_chunk_size) * self.pipeline.frame_seq_length
 
+            if profile:
+                self._sync_for_timing()
+                infer_start = time.time()
             denoised_pred = self.pipeline.inference_stream(
                 noise=noisy_latents[:, batch_idx].unsqueeze(1),
                 current_start=session.current_start,
                 current_end=session.current_end,
                 current_step=current_step,
             )
+            if profile:
+                self._sync_for_timing()
+                infer_s += time.time() - infer_start
 
             session.processed += 1
             self.processed = session.processed
 
             if session.processed >= num_steps:
+                if profile:
+                    self._sync_for_timing()
+                    decode_start = time.time()
                 outputs.append(self._decode_video_array(denoised_pred, last_frame_only=True))
+                if profile:
+                    self._sync_for_timing()
+                    decode_s += time.time() - decode_start
 
             session.current_start = session.current_end
             session.current_end += (session.chunk_size // self.base_chunk_size) * self.pipeline.frame_seq_length
 
         session.last_image = images[:, :, [-1]]
         session.noise_scale = noise_scale
+
+        if profile:
+            self._log_stage_breakdown(
+                num_frames=num_frames, input_batch=input_batch, produced=len(outputs),
+                read_s=queue_wait_time, encode_s=encode_s, infer_s=infer_s, decode_s=decode_s,
+            )
         return outputs
     
     def run_inference(
